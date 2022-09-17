@@ -1,0 +1,25 @@
+{
+	"Basic Commands" : {
+		"/clear" : "Purge Chat",
+		"r!kick" : "Transform user to OM (Kick)",
+		"/help": "Show help embed"
+	},
+	"Economy": {
+		"r!balance": "Balance",
+		"r!work": "Work to get work hours",
+		"r!shop": "Shop of Emporium (Currency: Work Hours)",
+		"r!rshop": "Shop of RayaPrime (Currency: OM)",
+		"r!lb": "Leaderboard of users (Currency: Work Hours)",
+		"r!pay <@member> <amount>": "Pay ours to member",
+		"r!convert <currency> <amount>": "Convert currency"
+	},
+	"Fun": {
+		"/dog": "Send dog image"
+	},
+	"City": {
+		"r!city": "Create city or show info about your city",
+		"r!renamecity": "Rename your city",
+		"/join <@member>": "Join to city of mentioned member",
+		"/citycontrol": "Control your city"
+	}
+}
