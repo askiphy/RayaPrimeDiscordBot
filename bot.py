@@ -157,52 +157,52 @@ async def purge(interaction: Interaction, amount: int):
         await interaction.channel.purge(limit=amount)
         await interaction.response.send_message(f"Удалено: {amount} сообщения(ий)! :wastebasket:", ephemeral=True)
 
-@client.command(aliases=["bal"])
-async def balance(ctx, member: nextcord.Member = None):
+@client.slash_command(description="Посмотреть свой баланс или баланс другого пользователя")
+async def balance(interaction: Interaction, member: nextcord.Member = None):
 	with sqlite3.connect("data.db") as db:
 		cursor = db.cursor()
 		if member is None:
-			if cursor.execute(f"SELECT cash FROM users WHERE id = {ctx.author.id}").fetchone() is None:
-				cursor.execute(f"INSERT INTO users VALUES ({ctx.author.id}, 1000, '{ctx.author}', 1000, '-')")
-			cash = cursor.execute(f"SELECT cash FROM users WHERE id = {ctx.author.id}").fetchone()
-			om = cursor.execute(f"SELECT om FROM users WHERE id = {ctx.author.id}").fetchone()
+			if cursor.execute(f"SELECT cash FROM users WHERE id = {interaction.user.id}").fetchone() is None:
+				cursor.execute(f"INSERT INTO users VALUES ({interaction.user.id}, 1000, '{interaction.user}', 1000, '-')")
+			cash = cursor.execute(f"SELECT cash FROM users WHERE id = {interaction.user.id}").fetchone()
+			om = cursor.execute(f"SELECT om FROM users WHERE id = {interaction.user.id}").fetchone()
 			emb = nextcord.Embed(title=f"Баланс **{ctx.author}**", color=nextcord.Color.blue())
 			emb.add_field(name="Рабочие часы:", value=cash[0], inline=False)
 			emb.add_field(name="ПМ:", value=om[0], inline=False)
 			emb.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
-			await ctx.send(embed=emb)
+			await interaction.response.send_message(embed=emb)
 		else:
 			if cursor.execute(f"SELECT cash FROM users WHERE id = {member.id}").fetchone() is None:
 				cursor.execute(f"INSERT INTO users VALUES ({member.id}, 1000, '{member}', 1000, '-')")
 			cash = cursor.execute(f"SELECT cash FROM users WHERE id = {member.id}").fetchone()	
-			om = cursor.execute(f"SELECT om FROM users WHERE id = {ctx.author.id}").fetchone()
+			om = cursor.execute(f"SELECT om FROM users WHERE id = {member.id}").fetchone()
 			emb = nextcord.Embed(title=f"Баланс **{member}**", color=nextcord.Color.blue())
 			emb.add_field(name="Рабочие часы:", value=cash[0], inline=False)
 			emb.add_field(name="ПМ:", value=om[0], inline=False)
 			emb.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
-			await ctx.send(embed=emb)
+			await interaction.response.send_message(embed=emb)
 
-@client.command()
+@client.slash_command(description="Работа Империи")
 @commands.cooldown(1, 60, commands.BucketType.user)
-async def work(ctx):
+async def work(interaction: Interaction):
 	with sqlite3.connect("data.db") as db:
 		cursor = db.cursor()
-		if cursor.execute(f"SELECT cash FROM users WHERE id = {ctx.author.id}").fetchone() is None:
+		if cursor.execute(f"SELECT cash FROM users WHERE id = {interaction.user.id}").fetchone() is None:
 			cursor.execute(f"INSERT INTO users VALUES ({ctx.author.id}, 1000, '{ctx.author}', 1000, '-')")	
-		cash = cursor.execute(f"SELECT cash FROM users WHERE id = {ctx.author.id}").fetchone()
+		cash = cursor.execute(f"SELECT cash FROM users WHERE id = {interaction.user.id}").fetchone()
 		new_cash = random.randint(5, 15)
-		cursor.execute(F"UPDATE users SET cash = {cash[0] + new_cash} WHERE id = {ctx.author.id}")
-		await ctx.send(f"{ctx.author.mention}, вы получили **{new_cash}** рабочих часов. Теперь у вас: **{cash[0] + new_cash}** рабочих часов")
+		cursor.execute(F"UPDATE users SET cash = {cash[0] + new_cash} WHERE id = {interaction.user.id}")
+		await interaction.response.send_message(f"{interaction.user.mention}, вы получили **{new_cash}** рабочих часов. Теперь у вас: **{cash[0] + new_cash}** рабочих часов")
 
-@client.command()
+@client.slash_command(description="КИК")
 @commands.has_permissions( administrator = True )
-async def kick(ctx, *, member: nextcord.Member, reason: str):
+async def kick(interaction: Interaction, *, member: nextcord.Member, reason: str):
 	await member.kick(reason=reason)
 	try:
 		await member.send(f"Вы были превращены в ПМ по причине: **{reason}**")
 	except:
 		pass
-	await ctx.send(f"Ура-ура! Я превратила {member.name} в ПМ по причине: **{reason}**!")
+	await interaction.response.send_message(f"Ура-ура! Я превратила {member.name} в ПМ по причине: **{reason}**!")
 
 @client.slash_command(description="Магазин Эмпориума")
 async def shop(interaction: Interaction):
@@ -264,8 +264,8 @@ async def removeitem(interaction: Interaction, name: str, where: str):
 				cursor.execute(f"DELETE FROM {where} WHERE item = ?", [name])
 				await interaction.response.send_message(f"Товар **{name}** успешно удалён!")
 
-@client.command(aliases=["lb"])
-async def leaderboard(ctx):
+@client.slash_command(description="Доска лидеров")
+async def leaderboard(interaction: Interaction):
 	with sqlite3.connect("data.db") as db:
 		cursor = db.cursor()
 		emb = nextcord.Embed(title="Топ 10 по серверам", color=nextcord.Color.green())
@@ -275,35 +275,31 @@ async def leaderboard(ctx):
 			counter += 1
 			emb.add_field(name=f"# {counter} || **{row[0]}**", value=f"{row[1]} рабочих часов")
 
-		await ctx.send(embed=emb)	
+		await interaction.response.send_message(embed=emb)	
 
-@client.command()
-async def pay(ctx, member: nextcord.Member = None, amount: int = None):
-	if member is None:
-		await ctx.send(f"{ctx.author.mention}, укажите пользователя!")
-	if member.id == ctx.author.id:
-		await ctx.send("Вы не можете отправить рабочие часы самому себе!")
+@client.slash_command(description="Перевод РЧ пользователю")
+async def pay(interaction: Interaction, member: nextcord.Member, amount: int):
+	if member.id == interaction.user.id:
+		await interaction.response.send_message("Вы не можете отправить рабочие часы самому себе!")
 		return
-	if amount is None:
-		await ctx.send(f"{ctx.author.mention}, укажите сумму рабочих часов для перевода!")
 	if amount <= 0:
-		await ctx.send("Вы не можете перевести сумму равную нулю или меньше нуля!")
+		await interaction.response.send_message("Вы не можете перевести сумму равную нулю или меньше нуля!")
 	else:
 		with sqlite3.connect("data.db") as db:
 			cursor = db.cursor()
-			if cursor.execute(f"SELECT cash FROM users WHERE id = {ctx.author.id}").fetchone() is None:
-				cursor.execute(f"INSERT INTO users VALUES ({ctx.author.id}, 1000, {ctx.author}, 1000, '-')")
+			if cursor.execute(f"SELECT cash FROM users WHERE id = {interaction.user.id}").fetchone() is None:
+				cursor.execute(f"INSERT INTO users VALUES ({interaction.user.id}, 1000, {interaction.user}, 1000, '-')")
 			else:
-				cash = cursor.execute(f"SELECT cash FROM users WHERE id = {ctx.author.id}").fetchone()
-				cursor.execute(F"UPDATE users SET cash = {cash[0] - amount} WHERE id = {ctx.author.id}")
+				cash = cursor.execute(f"SELECT cash FROM users WHERE id = {interaction.user.id}").fetchone()
+				cursor.execute(F"UPDATE users SET cash = {cash[0] - amount} WHERE id = {interaction.user.id}")
 				user_cash =	cursor.execute(f"SELECT cash FROM users WHERE id = {member.id}").fetchone()	
 				cursor.execute(F"UPDATE users SET cash = {user_cash[0] + amount} WHERE id = {member.id}")
 				emb = nextcord.Embed(title="Перевод пользователю", color = nextcord.Color.blue())
-				emb.add_field(name="От:", value=f"{ctx.author}")
+				emb.add_field(name="От:", value=f"{interaction.user}")
 				emb.add_field(name="Кому:", value=f"{member}")
 				emb.add_field(name="Кол-во:", value=f"{amount}")
 				emb.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
-				await ctx.send(embed=emb)
+				await interaction.response.send_message(embed=emb)
 
 @client.command()
 async def convert(ctx, value: str = None, amount: int = None):
@@ -439,10 +435,10 @@ async def city(ctx, name: str = None, member: nextcord.Member = None):
 
 			await ctx.send(embed=emb)
 
-@client.command()
-async def renamecity(ctx, name: str = None):
+@client.slash_command(description="Запрос на изменение имени города")
+async def renamecity(ctx, name: str):
 	channel = client.get_channel(1017456040519946300)
-	await ctx.send("Запрос на смену названия города отправлен!")
+	await interaction.response.send_message("Запрос на смену названия города отправлен!")
 	emb = nextcord.Embed(title=f"Запрос на изменение имени города", color=nextcord.Color.blue())
 	emb.add_field(name=f"От:", value=f"**{ctx.author}**")
 	emb.add_field(name=f"Изменить имя на:", value=f"**{name}**")
@@ -505,13 +501,14 @@ async def msg(ctx, msg: str):
 
 @client.command()
 async def off(ctx):
-	await ctx.send("@everyone Пока-Пока!! И помните: askiphy и Райя-Прайм заботятся о Вас!")
+	await ctx.send("Пока-Пока!! И помните: askiphy и Райя-Прайм заботятся о Вас!")
 
 @client.slash_command(description="Отправить сообщение пользователю :D")
 async def sendmsg(interaction: Interaction, where: nextcord.Member, theme: str, msg: str):
 	emb = nextcord.Embed(title=f"[Новое сообщение от {interaction.user}]", color=nextcord.Color.green())
 	emb.add_field(name="Тема:", value=theme, inline=False)
 	emb.add_field(name="Сообщение:", value=msg, inline=False)
+	emb.add_field(name="И помните:", value="askiphy заботится о Вас!", inline=False)
 	emb.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
 	await interaction.response.send_message("Сообщение доставлено!")
 
@@ -528,8 +525,15 @@ async def sendnews(interaction: Interaction, theme: str, msg: str):
 		emb.add_field(name="Отправитель:", value="Аллотера", inline=False)
 		emb.add_field(name="Тема:", value=theme, inline=False)
 		emb.add_field(name="Сообщение:", value=msg, inline=False)
+		emb.add_field(name="И помните:", value="askiphy заботится о Вас!", inline=False)
+		emb.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
 
-		cursor.execute("SELECT id FROM users").fetchone()
+		for user in cursor.execute("SELECT id FROM users"):
+			member = await client.fetch_user(user[0])
+			try:
+				await member.send(embed=emb)
+			except:
+				pass
 		await interaction.response.send_message("Сообщения доставлены!")
 
 client.run(bot_config.TOKEN)
