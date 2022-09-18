@@ -188,7 +188,7 @@ async def work(interaction: Interaction):
 	with sqlite3.connect("data.db") as db:
 		cursor = db.cursor()
 		if cursor.execute(f"SELECT cash FROM users WHERE id = {interaction.user.id}").fetchone() is None:
-			cursor.execute(f"INSERT INTO users VALUES ({ctx.author.id}, 1000, '{ctx.author}', 1000, '-')")	
+			cursor.execute(f"INSERT INTO users VALUES ({interaction.user.id}, 1000, '{interaction.user}', 1000, '-')")	
 		cash = cursor.execute(f"SELECT cash FROM users WHERE id = {interaction.user.id}").fetchone()
 		new_cash = random.randint(5, 15)
 		cursor.execute(F"UPDATE users SET cash = {cash[0] + new_cash} WHERE id = {interaction.user.id}")
@@ -505,6 +505,7 @@ async def off(ctx):
 
 @client.slash_command(description="Отправить сообщение пользователю :D")
 async def sendmsg(interaction: Interaction, where: nextcord.Member, theme: str, msg: str):
+	channel = client.get_channel(1017456040519946300)
 	emb = nextcord.Embed(title=f"[Новое сообщение от {interaction.user}]", color=nextcord.Color.green())
 	emb.add_field(name="Тема:", value=theme, inline=False)
 	emb.add_field(name="Сообщение:", value=msg, inline=False)
@@ -512,6 +513,7 @@ async def sendmsg(interaction: Interaction, where: nextcord.Member, theme: str, 
 	emb.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
 	try:
 		await where.send(embed=emb)
+		await channel.send("Логи", embed=emb)
 		await interaction.response.send_message("Сообщение доставлено!")
 	except:
 		await interaction.response.send_message(f"Пользователю **{where}** невозможно отправить сообщение!")
