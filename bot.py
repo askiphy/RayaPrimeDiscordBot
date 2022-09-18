@@ -510,9 +510,11 @@ async def sendmsg(interaction: Interaction, where: nextcord.Member, theme: str, 
 	emb.add_field(name="Сообщение:", value=msg, inline=False)
 	emb.add_field(name="И помните:", value="askiphy заботится о Вас!", inline=False)
 	emb.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
-	await interaction.response.send_message("Сообщение доставлено!")
-
-	await where.send(embed=emb)
+	try:
+		await where.send(embed=emb)
+		await interaction.response.send_message("Сообщение доставлено!")
+	except:
+		await interaction.response.send_message(f"Пользователю **{where}** невозможно отправить сообщение!")
 
 @client.slash_command(description="Разослать всем сообщение от имени Империи")
 async def sendnews(interaction: Interaction, theme: str, msg: str):
