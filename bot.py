@@ -513,7 +513,12 @@ async def sendmsg(interaction: Interaction, where: nextcord.Member, theme: str, 
 	emb.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
 	try:
 		await where.send(embed=emb)
-		await channel.send("Логи", embed=emb)
+		embed = nextcord.Embed(title=f"Сообщение от {interaction.user}", color=nextcord.Color.red())
+		embed.add_field(name="Кому:", value=where, inline=False)
+		embed.add_field(name="Тема:", value=theme, inline=False)
+		embed.add_field(name="Сообщение:", value=msg, inline=False)
+		embed.add_field(name="Сервер:", value=interaction.guild, inline=False)
+		await channel.send(embed=embed)
 		await interaction.response.send_message("Сообщение доставлено!")
 	except:
 		await interaction.response.send_message(f"Пользователю **{where}** невозможно отправить сообщение!")
@@ -539,5 +544,12 @@ async def sendnews(interaction: Interaction, theme: str, msg: str):
 			except:
 				pass
 		await interaction.response.send_message("Сообщения доставлены!")
+
+@client.slash_command(description="РП")
+async def rp(interaction: Interaction, action: str, type: str = SlashOption(name="type", choices={"action": "action", "scream": "scream"})):
+	if type == "action":
+		await interaction.response.send_message(f"**{interaction.user.name}**: *{action.lower()}*")
+	if type == "scream":
+		await interaction.response.send_message(f"**{interaction.user.name}** крикнул: {action.upper()}")
 
 client.run(bot_config.TOKEN)
