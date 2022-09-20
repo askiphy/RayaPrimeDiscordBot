@@ -195,7 +195,7 @@ async def work(interaction: Interaction):
 		await interaction.response.send_message(f"{interaction.user.mention}, вы получили **{new_cash}** рабочих часов. Теперь у вас: **{cash[0] + new_cash}** рабочих часов")
 
 @client.slash_command(description="КИК")
-@commands.has_permissions( administrator = True )
+@Interaction.has_permissions( administrator = True )
 async def kick(interaction: Interaction, *, member: nextcord.Member, reason: str):
 	await member.kick(reason=reason)
 	try:
