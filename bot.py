@@ -164,7 +164,7 @@ async def balance(interaction: Interaction, member: nextcord.Member = None):
 				cursor.execute(f"INSERT INTO users VALUES ({interaction.user.id}, 1000, '{interaction.user}', 1000, '-')")
 			cash = cursor.execute(f"SELECT cash FROM users WHERE id = {interaction.user.id}").fetchone()
 			om = cursor.execute(f"SELECT om FROM users WHERE id = {interaction.user.id}").fetchone()
-			emb = nextcord.Embed(title=f"Баланс **{ctx.author}**", color=nextcord.Color.blue())
+			emb = nextcord.Embed(title=f"Баланс **{interaction.user}**", color=nextcord.Color.blue())
 			emb.add_field(name="Рабочие часы:", value=cash[0], inline=False)
 			emb.add_field(name="ПМ:", value=om[0], inline=False)
 			emb.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
@@ -584,5 +584,19 @@ async def sendmsgbyid(interaction: Interaction, id: str, theme: str, msg: str):
 		await channel.send(embed=embed)
 	except:
 			await interaction.response.send_message(f"Сообщение пользователю {where} не может быть доставлено!")
+
+@client.slash_command(description="Добавить город")
+async def addcity(interaction: Interaction, owner: nextcord.Member, name: str):
+	with sqlite3.connect("data.db") as db:
+		cursor = db.cursor()
+
+		if cursor.execute("SELECT owner_id FROM city WHERE owner_id = ?", [owner.id]).fetchone() is None:
+			values = [name, 1, owner.id, 1, owner, 1, 1000000]
+			cursor.execute(f"INSERT INTO city VALUES(?, ?, ?, ?, ?, ?, ?)", values)
+			cash = cursor.execute("SELECT cash FROM users WHERE id = ?", [owner.id]).fetchone()
+			cursor.execute(f"UPDATE users SET cash = {cash[0] - 1000000}")
+			await interaction.response.send_message(f"Город {name} создан!")
+		else:
+			await interaction.response.send_message(f"У пользователя **{owner}** уже есть город!")
 
 client.run(bot_config.TOKEN)
