@@ -591,8 +591,7 @@ async def addcity(interaction: Interaction, owner: nextcord.Member, name: str):
 		cursor = db.cursor()
 
 		if cursor.execute("SELECT owner_id FROM city WHERE owner_id = ?", [owner.id]).fetchone() is None:
-			values = [name, 1, owner.id, 1, 'owner', 1, 1000000]
-			cursor.execute(f"INSERT INTO city VALUES({name}, 1, {owner.id}, 1, '{owner}', 1, 1000000)", values)
+			cursor.execute(f"INSERT INTO city VALUES('{name}', 1, {owner.id}, 1, '{owner}', 1, 1000000)")
 			cash = cursor.execute("SELECT cash FROM users WHERE id = ?", [owner.id]).fetchone()
 			cursor.execute(f"UPDATE users SET cash = {cash[0] - 1000000}")
 			await interaction.response.send_message(f"Город {name} создан!")
