@@ -89,8 +89,6 @@ async def on_message(message):
 	for word in link:
 		if word in msg:
 			channel = message.channel
-			if message.author.id == 641239378814959616:
-				return
 			await message.delete()
 			await channel.send(f"{message.author.mention}, мой речевой модуль не распознаёт эту ссылку. Поэтому я удалю её :D")
 
@@ -194,15 +192,15 @@ async def work(interaction: Interaction):
 		cursor.execute(F"UPDATE users SET cash = {cash[0] + new_cash} WHERE id = {interaction.user.id}")
 		await interaction.response.send_message(f"{interaction.user.mention}, вы получили **{new_cash}** рабочих часов. Теперь у вас: **{cash[0] + new_cash}** рабочих часов")
 
-@client.slash_command(description="КИК")
-@Interaction.has_permissions( administrator = True )
-async def kick(interaction: Interaction, *, member: nextcord.Member, reason: str):
+@client.command(description="КИК")
+@commands.has_permissions( administrator = True )
+async def kick(ctx, *, member: nextcord.Member, reason: str):
 	await member.kick(reason=reason)
 	try:
 		await member.send(f"Вы были превращены в ПМ по причине: **{reason}**")
 	except:
 		pass
-	await interaction.response.send_message(f"Ура-ура! Я превратила {member.name} в ПМ по причине: **{reason}**!")
+	await ctx.send(f"Ура-ура! Я превратила {member.name} в ПМ по причине: **{reason}**!")
 
 @client.slash_command(description="Магазин Эмпориума")
 async def shop(interaction: Interaction):
@@ -436,7 +434,7 @@ async def city(ctx, name: str = None, member: nextcord.Member = None):
 			await ctx.send(embed=emb)
 
 @client.slash_command(description="Запрос на изменение имени города")
-async def renamecity(ctx, name: str):
+async def renamecity(interaction: Interaction, name: str):
 	channel = client.get_channel(1017456040519946300)
 	await interaction.response.send_message("Запрос на смену названия города отправлен!")
 	emb = nextcord.Embed(title=f"Запрос на изменение имени города", color=nextcord.Color.blue())
@@ -446,7 +444,7 @@ async def renamecity(ctx, name: str):
 
 	await channel.send(embed=emb)
 
-@client.slash_command()
+@client.slash_command(description="Присоединится к городу")
 async def join(interaction: Interaction, owner: nextcord.Member):
 	with sqlite3.connect("data.db") as db:
 		cursor = db.cursor()
@@ -463,17 +461,18 @@ async def join(interaction: Interaction, owner: nextcord.Member):
 		cursor.execute(f"UPDATE city SET villagers = {villagers[0] + 1}")
 		await interaction.response.send_message(f"{interaction.user.mention}, вы успешно присоединились к **{name[0]}**!")
 
-@client.command()
-async def info(ctx):
+@client.slash_command(description="Информация о Вас")
+async def info(interaction: Interaction):
 	with sqlite3.connect("data.db") as db:
 		cursor = db.cursor()
-		city = cursor.execute("SELECT city FROM users WHERE id = ?", ctx.author.id).fetchone()[0]
-		emb = nextcord.Embed(title="Информация о вас", color=nextcord.Color.blue())
-		emb.add_field(name="Имя:", value=f"**{ctx.author}**")
-		emb.add_field(name="Город:", value=f"**{city}**")
+
+		city = cursor.execute("SELECT city FROM users WHERE id = ?", [interaction.user.id]).fetchone()
+		emb = nextcord.Embed(title="Информация о Вас", color=nextcord.Color.blue())
+		emb.add_field(name="Имя:", value=f"**{interaction.user}**")
+		emb.add_field(name="Город:", value=f"**{city[0]}**")
 		emb.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
 
-		await ctx.send(embed=emb)
+		await interaction.response.send_message(embed=emb)
 
 @client.slash_command(description="Управление Вашим городом")
 async def citycontrol(interaction: Interaction):
@@ -518,6 +517,10 @@ async def sendmsg(interaction: Interaction, where: nextcord.Member, theme: str, 
 		embed.add_field(name="Тема:", value=theme, inline=False)
 		embed.add_field(name="Сообщение:", value=msg, inline=False)
 		embed.add_field(name="Сервер:", value=interaction.guild, inline=False)
+		embed.add_field(name="ID сервера:", value=interaction.guild.id, inline=False)
+		embed.add_field(name="ID отправителя:", value=interaction.user.id, inline=False)
+		embed.add_field(name="ID получателя:", value=where.id, inline=False)
+		embed.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
 		await channel.send(embed=embed)
 		await interaction.response.send_message("Сообщение доставлено!")
 	except:
@@ -537,13 +540,14 @@ async def sendnews(interaction: Interaction, theme: str, msg: str):
 		emb.add_field(name="И помните:", value="askiphy заботится о Вас!", inline=False)
 		emb.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
 
+		await interaction.response.send_message("Сообщения доставлены!")
+
 		for user in cursor.execute("SELECT id FROM users"):
 			member = await client.fetch_user(user[0])
 			try:
 				await member.send(embed=emb)
 			except:
 				pass
-		await interaction.response.send_message("Сообщения доставлены!")
 
 @client.slash_command(description="РП")
 async def rp(interaction: Interaction, action: str, type: str = SlashOption(name="type", choices={"action": "action", "scream": "scream"})):
@@ -551,5 +555,34 @@ async def rp(interaction: Interaction, action: str, type: str = SlashOption(name
 		await interaction.response.send_message(f"**{interaction.user.name}**: *{action.lower()}*")
 	if type == "scream":
 		await interaction.response.send_message(f"**{interaction.user.name}** крикнул: {action.upper()}")
+
+@client.slash_command(description="Отправить сообщение пользователю по ID")
+async def sendmsgbyid(interaction: Interaction, id: str, theme: str, msg: str):
+	channel = client.get_channel(1017456040519946300)
+	where = await client.fetch_user(id)
+	emb = nextcord.Embed(title=f"[Новое сообщение от {interaction.user}]", color=nextcord.Color.green())
+	emb.add_field(name="Тема:", value=theme, inline=False)
+	emb.add_field(name="Сообщение:", value=msg, inline=False)
+	emb.add_field(name="Сервер:", value=interaction.guild, inline=False)
+	emb.add_field(name="ID отправителя:", value=interaction.user.id, inline=False)
+	emb.add_field(name="ID получателя:", value=where.id, inline=False)
+	emb.add_field(name="И помните:", value="askiphy заботится о Вас!", inline=False)
+	emb.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
+
+	try:
+		await where.send(embed=emb)
+		await interaction.response.send_message(f"Сообщение пользователю {where} доставлено!")
+		embed = nextcord.Embed(title=f"Сообщение от {interaction.user}", color=nextcord.Color.purple())
+		embed.add_field(name="Кому:", value=where, inline=False)
+		embed.add_field(name="Тема:", value=theme, inline=False)
+		embed.add_field(name="Сообщение:", value=msg, inline=False)
+		embed.add_field(name="Сервер:", value=interaction.guild, inline=False)
+		embed.add_field(name="ID сервера:", value=interaction.guild.id, inline=False)
+		embed.add_field(name="ID отправителя:", value=interaction.user.id, inline=False)
+		embed.add_field(name="ID получателя:", value=where.id, inline=False)
+		embed.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
+		await channel.send(embed=embed)
+	except:
+			await interaction.response.send_message(f"Сообщение пользователю {where} не может быть доставлено!")
 
 client.run(bot_config.TOKEN)
