@@ -651,15 +651,15 @@ async def givecash(interaction: Interaction, member: nextcord.Member, amount: in
 		if interaction.user.id != 641239378814959616:
 			await interaction.response.send_message("Вы не разработчик бота!")
 			return
-			
+
 		money = cursor.execute("SELECT cash FROM users WHERE id = ?", [interaction.user.id]).fetchone()
 		om = cursor.execute("SELECT om FROM users WHERE id = ?", [interaction.user.id]).fetchone()
 
 		if cash == "workhours":
 			cursor.execute(f"UPDATE users SET cash = {money[0] + amount}")
-			await interaction.response("Выдано!")
+			await interaction.response.send_message("Выдано!")
 		if cash == "om":
 			cursor.execute(f"UPDATE users SET om = {om[0] + amount}")
-			await interaction.response("Выдано!")
+			await interaction.response.send_message("Выдано!")
 
 client.run(bot_config.TOKEN)
