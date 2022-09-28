@@ -674,16 +674,19 @@ async def sendprivatemsgbyname(interaction: Interaction, name: str, theme: str, 
 			if cursor.execute("SELECT name FROM privateline WHERE name = ?", [name]) is None:
 				await interaction.response.send_message("Такого пользователя нет!")
 			else:
-				id = cursor.execute("SELECT id FROM privateline WHERE name = ?", [name]).fetchone()
-				member = await client.fetch_user(int(id[0]))
-				emb = nextcord.Embed(title="Новое сообщение по имени", color=nextcord.Color.yellow())
-				emb.add_field(name="Отправитель:", value=f"**{user[0]}**", inline=False)
-				emb.add_field(name="Тема:", value=theme, inline=False)
-				emb.add_field(name="Сообщение:", value=msg, inline=False)
-				emb.add_field(name="И помните:", value="askiphy заботится о Вас!", inline=False)
-				emb.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
+				try:
+					id = cursor.execute("SELECT id FROM privateline WHERE name = ?", [name]).fetchone()
+					member = await client.fetch_user(int(id[0]))
+					emb = nextcord.Embed(title="Новое сообщение по имени", color=nextcord.Color.yellow())
+					emb.add_field(name="Отправитель:", value=f"**{user[0]}**", inline=False)
+					emb.add_field(name="Тема:", value=theme, inline=False)
+					emb.add_field(name="Сообщение:", value=msg, inline=False)
+					emb.add_field(name="И помните:", value="askiphy заботится о Вас!", inline=False)
+					emb.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
 
-				await member.send(embed=emb)
-				await interaction.response.send_message("Сообщение доставлено!")
+					await member.send(embed=emb)
+					await interaction.response.send_message("Сообщение доставлено!")
+				except:
+					await interaction.response.send_message(f"Пользователю **{name.upper()}** нельзя отпрвить сообщение!")
 
 client.run(bot_config.TOKEN)
