@@ -652,8 +652,8 @@ async def givecash(interaction: Interaction, member: nextcord.Member, amount: in
 			await interaction.response.send_message("Вы не разработчик бота!")
 			return
 
-		money = cursor.execute("SELECT cash FROM users WHERE id = ?", [interaction.user.id]).fetchone()
-		om = cursor.execute("SELECT om FROM users WHERE id = ?", [interaction.user.id]).fetchone()
+		money = cursor.execute("SELECT cash FROM users WHERE id = ?", [member.id]).fetchone()
+		om = cursor.execute("SELECT om FROM users WHERE id = ?", [member.id]).fetchone()
 
 		if cash == "workhours":
 			cursor.execute(f"UPDATE users SET cash = {money[0] + amount} WHERE id = ?", [member.id])
@@ -661,5 +661,29 @@ async def givecash(interaction: Interaction, member: nextcord.Member, amount: in
 		if cash == "om":
 			cursor.execute(f"UPDATE users SET om = {om[0] + amount} WHERE id = ?", [member.id])
 			await interaction.response.send_message("Выдано!")
+
+@client.slash_command(description="Отправить сообщение по выделенной линии по имени")
+async def sendprivatemsgbyname(interaction: Interaction, name: str, theme: str, msg: str):
+	with sqlite3.connect("data.db") as db:
+		cursor = db.cursor()
+		if cursor.execute("SELECT id FROM privateline WHERE id = ?", [interaction.user.id]).fetchone() is None:
+			await interaction.response.send_message("У Вас нет выделенной линии!")
+			return
+		else:
+			user = cursor.execute("SELECT name FROM privateline WHERE id = ?", [interaction.user.id]).fetchone()
+			if cursor.execute("SELECT name FROM privateline WHERE name = ?", [name]) is None:
+				await interaction.response.send_message("Такого пользователя нет!")
+			else:
+				id = cursor.execute("SELECT id FROM privateline WHERE name = ?", [name]).fetchone()
+				member = await client.fetch_user(int(id[0]))
+				emb = nextcord.Embed(title="Новое сообщение по имени", color=nextcord.Color.yellow())
+				emb.add_field(name="Отправитель:", value=f"**{user[0]}**", inline=False)
+				emb.add_field(name="Тема:", value=theme, inline=False)
+				emb.add_field(name="Сообщение:", value=msg, inline=False)
+				emb.add_field(name="И помните:", value="askiphy заботится о Вас!", inline=False)
+				emb.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
+
+				await member.send(embed=emb)
+				await interaction.response.send_message("Сообщение доставлено!")
 
 client.run(bot_config.TOKEN)
