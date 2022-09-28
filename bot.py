@@ -504,7 +504,6 @@ async def off(ctx):
 
 @client.slash_command(description="Отправить сообщение пользователю :D")
 async def sendmsg(interaction: Interaction, where: nextcord.Member, theme: str, msg: str):
-	channel = client.get_channel(1017456040519946300)
 	emb = nextcord.Embed(title=f"[Новое сообщение от {interaction.user}]", color=nextcord.Color.green())
 	emb.add_field(name="Тема:", value=theme, inline=False)
 	emb.add_field(name="Сообщение:", value=msg, inline=False)
@@ -512,6 +511,7 @@ async def sendmsg(interaction: Interaction, where: nextcord.Member, theme: str, 
 	emb.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
 	try:
 		await where.send(embed=emb)
+		channel = client.get_channel(1017456040519946300)
 		embed = nextcord.Embed(title=f"Сообщение от {interaction.user}", color=nextcord.Color.red())
 		embed.add_field(name="Кому:", value=where, inline=False)
 		embed.add_field(name="Тема:", value=theme, inline=False)
@@ -560,7 +560,7 @@ async def rp(interaction: Interaction, action: str, type: str = SlashOption(name
 async def sendmsgbyid(interaction: Interaction, id: str, theme: str, msg: str):
 	channel = client.get_channel(1017456040519946300)
 	where = await client.fetch_user(id)
-	emb = nextcord.Embed(title=f"[Новое сообщение от {interaction.user}]", color=nextcord.Color.green())
+	emb = nextcord.Embed(title=f"[Новое сообщение от {interaction.user}]", color=nextcord.Color.purple())
 	emb.add_field(name="Тема:", value=theme, inline=False)
 	emb.add_field(name="Сообщение:", value=msg, inline=False)
 	emb.add_field(name="Сервер:", value=interaction.guild, inline=False)
@@ -571,7 +571,7 @@ async def sendmsgbyid(interaction: Interaction, id: str, theme: str, msg: str):
 
 	try:
 		await where.send(embed=emb)
-		await interaction.response.send_message(f"Сообщение пользователю {where} доставлено!")
+		await interaction.response.send_message(f"Сообщение пользователю **{where}** доставлено!")
 		embed = nextcord.Embed(title=f"Сообщение от {interaction.user}", color=nextcord.Color.purple())
 		embed.add_field(name="Кому:", value=where, inline=False)
 		embed.add_field(name="Тема:", value=theme, inline=False)
@@ -583,19 +583,83 @@ async def sendmsgbyid(interaction: Interaction, id: str, theme: str, msg: str):
 		embed.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
 		await channel.send(embed=embed)
 	except:
-			await interaction.response.send_message(f"Сообщение пользователю {where} не может быть доставлено!")
+			await interaction.response.send_message(f"Сообщение пользователю **{where}** не может быть доставлено!")
 
 @client.slash_command(description="Добавить город")
 async def addcity(interaction: Interaction, owner: nextcord.Member, name: str):
 	with sqlite3.connect("data.db") as db:
 		cursor = db.cursor()
 
+		if interaction.user.id != 641239378814959616:
+			await interaction.response.send_message("Вы не разработчик бота!")
+			return
+
 		if cursor.execute("SELECT owner_id FROM city WHERE owner_id = ?", [owner.id]).fetchone() is None:
 			cursor.execute(f"INSERT INTO city VALUES('{name}', 1, {owner.id}, 1, '{owner}', 1, 1000000)")
 			cash = cursor.execute("SELECT cash FROM users WHERE id = ?", [owner.id]).fetchone()
-			cursor.execute(f"UPDATE users SET cash = {cash[0] - 1000000} WHERE id = ?", [owner.id])
+			cursor.execute(f"UPDATE users SET cash = {cash[0] - 1000000}")
 			await interaction.response.send_message(f"Город {name} создан!")
 		else:
 			await interaction.response.send_message(f"У пользователя **{owner}** уже есть город!")
+
+@client.slash_command(description="Купить выделенную линию для общения (2500 РЧ)")
+async def privateline(interaction: Interaction, name: str):
+	with sqlite3.connect("data.db") as db:
+		cursor = db.cursor()
+		cursor.execute("""CREATE TABLE IF NOT EXISTS privateline (
+				id INT,
+				name TEXT
+			)""")
+
+		if cursor.execute("SELECT id FROM privateline WHERE id = ?", [interaction.user.id]).fetchone() is None:
+			money = cursor.execute("SELECT cash FROM users WHERE id = ?", [interaction.user.id]).fetchone()
+			if money[0] < 2500:
+				await interaction.response.send_message("У Вас недостаточно РЧ!")
+				return
+			else:
+				if cursor.execute("SELECT id FROM privateline WHERE id = ?", [interaction.user.id]).fetchone() is None:
+					cursor.execute(f"UPDATE users SET cash = {money[0] - 2500}")
+					values = [interaction.user.id, name]
+					cursor.execute("INSERT INTO privateline VALUES (?, ?)", values)
+				await interaction.response.send_message(f"Выделенная линия успешно приобритена! Ваш номер: **{name}**")
+		else:
+			await interaction.response.send_message("У Вас уже имеется выделенная линия!")
+
+@client.slash_command(description="Отправить сообщение по выделенной линии")
+async def sendprivatemsg(interaction: Interaction, where: nextcord.Member, theme: str, msg: str):
+	with sqlite3.connect("data.db") as db:
+		cursor = db.cursor()
+		if cursor.execute("SELECT id FROM privateline WHERE id = ?", [interaction.user.id]).fetchone() is None:
+			await interaction.response.send_message("У Вас нет выделенной линии!")
+			return
+		else:
+			name = cursor.execute("SELECT name FROM privateline WHERE id = ?", [interaction.user.id]).fetchone()
+			emb = nextcord.Embed(title="Новое сообщение", color=nextcord.Color.red())
+			emb.add_field(name="Отправитель:", value=f"**{name[0]}**", inline=False)
+			emb.add_field(name="Тема:", value=theme, inline=False)
+			emb.add_field(name="Сообщение:", value=msg, inline=False)
+			emb.add_field(name="И помните:", value="askiphy заботится о Вас!", inline=False)
+			emb.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
+
+			await where.send(embed=emb)
+			await interaction.response.send_message("Сообщение доставлено по выделенной линии!")
+
+@client.slash_command(description="Выдать РЧ или ПМ пользователю")
+async def givecash(interaction: Interaction, member: nextcord.Member, amount: int, cash: str = SlashOption(name="cash", choices={"workhours": "workhours", "om": "om"})):
+	with sqlite3.connect("data.db") as db:
+		cursor = db.cursor()
+		if interaction.user.id != 641239378814959616:
+			await interaction.response.send_message("Вы не разработчик бота!")
+			return
+			
+		money = cursor.execute("SELECT cash FROM users WHERE id = ?", [interaction.user.id]).fetchone()
+		om = cursor.execute("SELECT om FROM users WHERE id = ?", [interaction.user.id]).fetchone()
+
+		if cash == "workhours":
+			cursor.execute(f"UPDATE users SET cash = {money[0] + amount}")
+			await interaction.response("Выдано!")
+		if cash == "om":
+			cursor.execute(f"UPDATE users SET om = {om[0] + amount}")
+			await interaction.response("Выдано!")
 
 client.run(bot_config.TOKEN)
