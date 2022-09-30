@@ -224,7 +224,7 @@ async def shop(interaction: Interaction):
 		await interaction.response.send_message(embed=emb)
 
 @client.slash_command(description="Добавить товар в магазин")
-async def additem(interaction: Interaction, where: str, name: str, price: int):
+async def additem(interaction: Interaction, name: str, price: int, where: str = SlashOption(name="where", choices={"emporium": "emporium", "raya": "raya", "petshop": "petshop"})):
 	if interaction.user.id != 641239378814959616:
 		await interaction.response.send_message(f"{interaction.user.mention}, только разработчик бота может выполнять эту команду!")
 	else:
@@ -234,21 +234,28 @@ async def additem(interaction: Interaction, where: str, name: str, price: int):
 			if price <= 0:
 				await interaction.response.send_message(f"{interaction.user.mention}, вы не можете указать цену меньше или равную нулю!")
 				return
-			if where == "эмпориум":
+			if where == "emporium":
 				if cursor.execute("SELECT item FROM shop WHERE item = ?", [name]).fetchone() is None:
 					values = name, price
 					cursor.executemany(f"INSERT INTO shop VALUES(?, ?)", [values])
 					await interaction.response.send_message(f"Товар **{name}** успешно добавлен!")
 				else:
 					await interaction.response.send_message("Такой товар существует!")
-			elif where == "райя":
+			elif where == "raya":
 				if cursor.execute("SELECT item FROM rshop WHERE item = ?", [name]).fetchone() is None:
 					values = name, price
 					cursor.executemany(f"INSERT INTO rshop VALUES(?, ?)", [values])
 					await interaction.response.send_message(f"Товар **{name}** успешно добавлен в магазин Райи!")
 				else:
-					await interaction.response.send_message("Такой товар существует!")				
-
+					await interaction.response.send_message("Такой товар существует!")	
+			elif where == "petshop":			
+				if cursor.execute("SELECT item FROM pets WHERE item = ?", [name]).fetchone() is None:
+					values = name, price
+					cursor.executemany(f"INSERT INTO pets VALUES(?, ?)", [values])
+					await interaction.response.send_message(f"Товар **{name}** успешно добавлен в магазин питомцев!")
+				else:
+					await interaction.response.send_message("Такой товар существует!")
+					
 @client.slash_command(description="Удалить товар из магазина")
 async def removeitem(interaction: Interaction, name: str, where: str):
 	if interaction.user.id != 641239378814959616:
@@ -467,9 +474,16 @@ async def info(interaction: Interaction):
 		cursor = db.cursor()
 
 		city = cursor.execute("SELECT city FROM users WHERE id = ?", [interaction.user.id]).fetchone()
+		pet = cursor.execute("SELECT name FROM userpets WHERE id = ?", [interaction.user.id]).fetchone()
 		emb = nextcord.Embed(title="Информация о Вас", color=nextcord.Color.blue())
-		emb.add_field(name="Имя:", value=f"**{interaction.user}**")
-		emb.add_field(name="Город:", value=f"**{city[0]}**")
+		if pet is None:
+			emb.add_field(name="Имя:", value=f"**{interaction.user}**")
+			emb.add_field(name="Питомец:", value=f"-")
+			emb.add_field(name="Город:", value=f"**{city[0]}**")
+		else:
+			emb.add_field(name="Имя:", value=f"**{interaction.user}**")
+			emb.add_field(name="Питомец:", value=f"{pet[0]}")
+			emb.add_field(name="Город:", value=f"**{city[0]}**")
 		emb.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
 
 		await interaction.response.send_message(embed=emb)
@@ -619,7 +633,7 @@ async def privateline(interaction: Interaction, name: str):
 			else:
 				if cursor.execute("SELECT id FROM privateline WHERE id = ?", [interaction.user.id]).fetchone() is None:
 					cursor.execute(f"UPDATE users SET cash = {money[0] - 2500}")
-					values = [interaction.user.id, name]
+					values = [interaction.user.id, name.upper()]
 					cursor.execute("INSERT INTO privateline VALUES (?, ?)", values)
 				await interaction.response.send_message(f"Выделенная линия успешно приобритена! Ваш номер: **{name}**")
 		else:
@@ -688,5 +702,55 @@ async def sendprivatemsgbyname(interaction: Interaction, name: str, theme: str, 
 					await interaction.response.send_message("Сообщение доставлено!")
 				except:
 					await interaction.response.send_message(f"Пользователю **{name.upper()}** нельзя отпрвить сообщение!")
+
+@client.slash_command(description="Магазин Питомцев :)")
+async def petshop(interaction: Interaction):
+	with sqlite3.connect("data.db") as db:
+		cursor = db.cursor()
+
+		cursor.execute("""CREATE TABLE IF NOT EXISTS pets(
+				item TEXT,
+				price BIGINT
+			)""")
+
+		if cursor.execute("SELECT * FROM pets").fetchone() is None:
+			await interaction.response.send_message("В магазине Питомцев в данный момент нет товаров!")
+			return
+		items = cursor.execute("SELECT * FROM pets").fetchall()
+		msg = ""
+		for item in cursor.execute("SELECT * FROM pets"):
+			msg += f"**{item[0]}** - **{item[1]}** рабочих часов\n"
+		emb = nextcord.Embed(title="Магазин Питомцев:", description=f"{msg}", color=nextcord.Color.gold())
+		emb.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
+		await interaction.response.send_message(embed=emb)
+
+@client.slash_command(description="Купить питомца (делается)")
+async def buypet(interaction: Interaction, name: str):
+	with sqlite3.connect("data.db") as db:
+		cursor = db.cursor()
+
+		cursor.execute("""CREATE TABLE IF NOT EXISTS userpets (
+				id INT,
+				name TEXT
+			)""")
+
+		if cursor.execute("SELECT id FROM userpets WHERE id = ?", [interaction.user.id]).fetchone() is None:
+			if cursor.execute("SELECT item FROM pets WHERE item = ?", [name]).fetchone() is None:
+				await interaction.response.send_message("Такого питомца не существует!")
+				return
+			else:
+				price = cursor.execute("SELECT price FROM pets WHERE item = ?", [name]).fetchone()
+				cash = cursor.execute("SELECT cash FROM users WHERE id = ?", [interaction.user.id]).fetchone()
+
+				if cash[0] < price[0]:
+					await interaction.response.send_message(f"У Вас недостаточно РЧ для покупки **{name}**!")
+					return
+				else:
+					values = [interaction.user.id, name]
+					cursor.execute("INSERT INTO userpets VALUES(?, ?)", values)
+					cursor.execute(f"UPDATE users SET cash = {cash[0] - price[0]}")
+					await interaction.response.send_message(f"Вы успешно приобрели в рабство питомца **{name}**!")
+		else:
+			await interaction.response.send_message("Упс :( Вы уже имеете питомца (раба)!")
 
 client.run(bot_config.TOKEN)
