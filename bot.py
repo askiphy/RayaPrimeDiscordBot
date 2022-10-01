@@ -224,7 +224,7 @@ async def shop(interaction: Interaction):
 		await interaction.response.send_message(embed=emb)
 
 @client.slash_command(description="Добавить товар в магазин")
-async def additem(interaction: Interaction, name: str, price: int, where: str = SlashOption(name="where", choices={"emporium": "emporium", "raya": "raya", "petshop": "petshop"})):
+async def additem(interaction: Interaction, name: str, price: int, where: str = SlashOption(name="where", choices={"emporium": "emporium", "raya": "raya", "petshop": "petshop", "implantshop": "implantshop"})):
 	if interaction.user.id != 641239378814959616:
 		await interaction.response.send_message(f"{interaction.user.mention}, только разработчик бота может выполнять эту команду!")
 	else:
@@ -253,6 +253,13 @@ async def additem(interaction: Interaction, name: str, price: int, where: str = 
 					values = name, price
 					cursor.executemany(f"INSERT INTO pets VALUES(?, ?)", [values])
 					await interaction.response.send_message(f"Товар **{name}** успешно добавлен в магазин питомцев!")
+				else:
+					await interaction.response.send_message("Такой товар существует!")
+			elif where == "implantshop":
+				if cursor.execute("SELECT item FROM implants WHERE item = ?", [name]).fetchone() is None:
+					values = name, price
+					cursor.executemany(f"INSERT INTO implants VALUES(?, ?)", [values])
+					await interaction.response.send_message(f"Товар **{name}** успешно добавлен в магазин Имплантов!")				
 				else:
 					await interaction.response.send_message("Такой товар существует!")
 					
@@ -473,18 +480,24 @@ async def info(interaction: Interaction):
 	with sqlite3.connect("data.db") as db:
 		cursor = db.cursor()
 
-		city = cursor.execute("SELECT city FROM users WHERE id = ?", [interaction.user.id]).fetchone()
+		global implant
+		global implants_msg
+		implants_msg = ""
 		pet = cursor.execute("SELECT name FROM userpets WHERE id = ?", [interaction.user.id]).fetchone()
-		emb = nextcord.Embed(title="Информация о Вас", color=nextcord.Color.blue())
+		for implant in cursor.execute("SELECT * FROM userimplants WHERE id = ?", [interaction.user.id]):
+			implants_msg += f"{implant[1]}\n"
 		if pet is None:
+			emb = nextcord.Embed(title="Информация о Вас", color=nextcord.Color.blue())
 			emb.add_field(name="Имя:", value=f"**{interaction.user}**")
 			emb.add_field(name="Питомец:", value=f"-")
-			emb.add_field(name="Город:", value=f"**{city[0]}**")
+			emb.add_field(name="Импланты:", value=f"{implants_msg}")
+			emb.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
 		else:
+			emb = nextcord.Embed(title="Информация о Вас", color=nextcord.Color.blue())
 			emb.add_field(name="Имя:", value=f"**{interaction.user}**")
 			emb.add_field(name="Питомец:", value=f"{pet[0]}")
-			emb.add_field(name="Город:", value=f"**{city[0]}**")
-		emb.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
+			emb.add_field(name="Импланты:", value=implants_msg)
+			emb.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
 
 		await interaction.response.send_message(embed=emb)
 
@@ -635,7 +648,7 @@ async def privateline(interaction: Interaction, name: str):
 					cursor.execute(f"UPDATE users SET cash = {money[0] - 2500}")
 					values = [interaction.user.id, name.upper()]
 					cursor.execute("INSERT INTO privateline VALUES (?, ?)", values)
-				await interaction.response.send_message(f"Выделенная линия успешно приобритена! Ваш номер: **{name}**")
+				await interaction.response.send_message(f"Выделенная линия успешно приобритена! Ваш номер: **{name.upper()}**")
 		else:
 			await interaction.response.send_message("У Вас уже имеется выделенная линия!")
 
@@ -724,7 +737,7 @@ async def petshop(interaction: Interaction):
 		emb.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
 		await interaction.response.send_message(embed=emb)
 
-@client.slash_command(description="Купить питомца (делается)")
+@client.slash_command(description="Купить питомца")
 async def buypet(interaction: Interaction, name: str):
 	with sqlite3.connect("data.db") as db:
 		cursor = db.cursor()
@@ -752,5 +765,85 @@ async def buypet(interaction: Interaction, name: str):
 					await interaction.response.send_message(f"Вы успешно приобрели в рабство питомца **{name}**!")
 		else:
 			await interaction.response.send_message("Упс :( Вы уже имеете питомца (раба)!")
+
+@client.slash_command(description="Магазин Имплантов")
+async def implantshop(interaction: Interaction):
+	with sqlite3.connect("data.db") as db:
+		cursor = db.cursor()
+
+		cursor.execute("""CREATE TABLE IF NOT EXISTS implants(
+				item TEXT,
+				price BIGINT
+			)""")
+
+		if cursor.execute("SELECT * FROM implants").fetchone() is None:
+			await interaction.response.send_message("В магазине Имплантов в данный момент нет товаров!")
+			return
+		items = cursor.execute("SELECT * FROM implants").fetchall()
+		msg = ""
+		for item in cursor.execute("SELECT * FROM implants"):
+			msg += f"**{item[0]}** - **{item[1]}** рабочих часов\n"
+		emb = nextcord.Embed(title="Магазин Имплантов:", description=f"{msg}", color=nextcord.Color.red())
+		emb.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
+		await interaction.response.send_message(embed=emb)
+
+@client.slash_command(description="Купить иимплант")
+async def buyimplant(interaction: Interaction, name: str):
+	with sqlite3.connect("data.db") as db:
+		cursor = db.cursor()
+
+		cursor.execute("""CREATE TABLE IF NOT EXISTS userimplants (
+				id INT,
+				name TEXT
+			)""")
+
+		if cursor.execute("SELECT id FROM userimplants WHERE id = ?", [interaction.user.id]).fetchone() is None:
+			if cursor.execute("SELECT item FROM implants WHERE item = ?", [name]).fetchone() is None:
+				await interaction.response.send_message("Такого иимпланта не существует!")
+				return
+			else:
+				price = cursor.execute("SELECT price FROM implants WHERE item = ?", [name]).fetchone()
+				cash = cursor.execute("SELECT cash FROM users WHERE id = ?", [interaction.user.id]).fetchone()
+
+				if cash[0] < price[0]:
+					await interaction.response.send_message(f"У Вас недостаточно РЧ для покупки иимпланта **{name}**!")
+					return
+				else:
+					values = [interaction.user.id, name]
+					cursor.execute("INSERT INTO userimplants VALUES(?, ?)", values)
+					cursor.execute(f"UPDATE users SET cash = {cash[0] - price[0]}")
+					await interaction.response.send_message(f"Вы успешно приобрели имплант **{name}**!")
+		else:
+			if cursor.execute("SELECT item FROM implants WHERE item = ?", [name]).fetchone() is None:
+				await interaction.response.send_message("Такого иимпланта не существует!")
+				return
+			else:
+				price = cursor.execute("SELECT price FROM implants WHERE item = ?", [name]).fetchone()
+				cash = cursor.execute("SELECT cash FROM users WHERE id = ?", [interaction.user.id]).fetchone()
+
+				if cash[0] < price[0]:
+					await interaction.response.send_message(f"У Вас недостаточно РЧ для покупки иимпланта **{name}**!")
+					return
+				else:
+					values = [interaction.user.id, name]
+					cursor.execute("INSERT INTO userimplants VALUES(?, ?)", values)
+					cursor.execute(f"UPDATE users SET cash = {cash[0] - price[0]}")
+					await interaction.response.send_message(f"Вы успешно приобрели имплант **{name}**!")	
+
+@client.slash_command(description="Установить имплант пользователю")
+async def installimplant(interaction: Interaction, member: nextcord.Member):
+	with sqlite3.connect("data.db") as db:
+		cursor = db.cursor()
+
+		if interaction.user.id != 641239378814959616:
+			await interaction.response.send_message("Вы не разработчик бота!")
+			return
+
+		if cursor.execute("SELECT id FROM userimplants WHERE id = ?", [member.id]) is None:
+			values = [member.id, "Модуль от Askiphy Industries"]
+			cursor.execute("INSERT INTO userimplants VALUES (?, ?)", values)
+			await interaction.response.send_message(f"{member.mention}, вам установили имплант!")
+		else:
+			await interaction.response.send_message("У этого пользователя уже есть имплант!")
 
 client.run(bot_config.TOKEN)
