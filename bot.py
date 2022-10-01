@@ -827,7 +827,7 @@ async def buyimplant(interaction: Interaction, name: str):
 				else:
 					values = [interaction.user.id, name]
 					cursor.execute("INSERT INTO userimplants VALUES(?, ?)", values)
-					cursor.execute(f"UPDATE users SET cash = {cash[0] - price[0]}")
+					cursor.execute(f"UPDATE users SET cash = {cash[0] - price[0]} WHERE id = ?", [interaction.user.id])
 					await interaction.response.send_message(f"Вы успешно приобрели имплант **{name}**!")	
 
 @client.slash_command(description="Установить имплант пользователю")
