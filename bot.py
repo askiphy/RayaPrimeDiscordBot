@@ -645,7 +645,7 @@ async def privateline(interaction: Interaction, name: str):
 				return
 			else:
 				if cursor.execute("SELECT id FROM privateline WHERE id = ?", [interaction.user.id]).fetchone() is None:
-					cursor.execute(f"UPDATE users SET cash = {money[0] - 2500}")
+					cursor.execute(f"UPDATE users SET cash = {money[0] - 2500} WHERE id = ?", [interaction.user.id])
 					values = [interaction.user.id, name.upper()]
 					cursor.execute("INSERT INTO privateline VALUES (?, ?)", values)
 				await interaction.response.send_message(f"Выделенная линия успешно приобритена! Ваш номер: **{name.upper()}**")
