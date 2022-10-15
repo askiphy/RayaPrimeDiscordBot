@@ -476,7 +476,7 @@ async def join(interaction: Interaction, owner: nextcord.Member):
 		await interaction.response.send_message(f"{interaction.user.mention}, вы успешно присоединились к **{name[0]}**!")
 
 @client.slash_command(description="Информация о Вас")
-async def info(interaction: Interaction):
+async def info(interaction: Interaction, member: nextcord.Member):
 	with sqlite3.connect("data.db") as db:
 		cursor = db.cursor()
 
