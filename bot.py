@@ -9,6 +9,7 @@ import requests
 import bot_config
 import sqlite3
 import json
+import db as database
 
 client = commands.Bot(command_prefix=bot_config.PREFIX)
 client.remove_command("help")
@@ -235,12 +236,10 @@ async def additem(interaction: Interaction, name: str, price: int, where: str = 
 				await interaction.response.send_message(f"{interaction.user.mention}, вы не можете указать цену меньше или равную нулю!")
 				return
 			if where == "emporium":
-				if cursor.execute("SELECT item FROM shop WHERE item = ?", [name]).fetchone() is None:
-					values = name, price
-					cursor.executemany(f"INSERT INTO shop VALUES(?, ?)", [values])
-					await interaction.response.send_message(f"Товар **{name}** успешно добавлен!")
+				if database.add_data("emporium", name, price) == True:
+					await interaction.response.send_message("Товар успешно добавлен в **магазин Эмпориума**")
 				else:
-					await interaction.response.send_message("Такой товар существует!")
+					await interaction.response.send_message("Товар с данным именем уже имеется!")
 			elif where == "raya":
 				if cursor.execute("SELECT item FROM rshop WHERE item = ?", [name]).fetchone() is None:
 					values = name, price
@@ -303,9 +302,10 @@ async def pay(interaction: Interaction, member: nextcord.Member, amount: int):
 				cursor.execute(f"INSERT INTO users VALUES ({interaction.user.id}, 1000, {interaction.user}, 1000, '-')")
 			else:
 				cash = cursor.execute(f"SELECT cash FROM users WHERE id = {interaction.user.id}").fetchone()
-				cursor.execute(F"UPDATE users SET cash = {cash[0] - amount} WHERE id = {interaction.user.id}")
+				database.remove_cash(interaction.user.id, amount)
 				user_cash =	cursor.execute(f"SELECT cash FROM users WHERE id = {member.id}").fetchone()	
-				cursor.execute(F"UPDATE users SET cash = {user_cash[0] + amount} WHERE id = {member.id}")
+				if database.add_cash(member.id, amount) == False:
+					await interaction.response.send_message("У данного пользователя нет аккаунта!")
 				emb = nextcord.Embed(title="Перевод пользователю", color = nextcord.Color.blue())
 				emb.add_field(name="От:", value=f"{interaction.user}")
 				emb.add_field(name="Кому:", value=f"{member}")
@@ -493,10 +493,21 @@ async def info(interaction: Interaction):
 			emb.add_field(name="Импланты:", value=f"{implants_msg}")
 			emb.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
 		else:
+			if cursor.execute("SELECT algoritm FROM algoritms WHERE id = ?", [member.id]).fetchone() is None:
+				algoritm = "Не назначен"
+			else:
+				algoritm = cursor.execute("SELECT algoritm FROM algoritms WHERE id = ?", [member.id]).fetchone()[0]
+			if cursor.execute("SELECT name FROM privateline WHERE id = ?", [member.id]).fetchone() is None:
+				privateline = "Нет"
+			else:
+				privateline = cursor.execute("SELECT name FROM privateline WHERE id = ?", [member.id]).fetchone()[0]
+
 			emb = nextcord.Embed(title="Информация о Вас", color=nextcord.Color.blue())
 			emb.add_field(name="Имя:", value=f"**{interaction.user}**")
 			emb.add_field(name="Питомец:", value=f"{pet[0]}")
 			emb.add_field(name="Импланты:", value=implants_msg)
+			emb.add_field(name="Алгоритм:", value=algoritm)
+			emb.add_field(name="Выделенная линия:", value=privateline)
 			emb.set_footer(text="© Все права защищены. 2022 год", icon_url=client.user.avatar)
 
 		await interaction.response.send_message(embed=emb)
@@ -645,7 +656,7 @@ async def privateline(interaction: Interaction, name: str):
 				return
 			else:
 				if cursor.execute("SELECT id FROM privateline WHERE id = ?", [interaction.user.id]).fetchone() is None:
-					cursor.execute(f"UPDATE users SET cash = {money[0] - 2500} WHERE id = ?", [interaction.user.id])
+					cursor.execute(f"UPDATE users SET cash = {money[0] - 2500}")
 					values = [interaction.user.id, name.upper()]
 					cursor.execute("INSERT INTO privateline VALUES (?, ?)", values)
 				await interaction.response.send_message(f"Выделенная линия успешно приобритена! Ваш номер: **{name.upper()}**")
@@ -845,5 +856,47 @@ async def installimplant(interaction: Interaction, member: nextcord.Member):
 			await interaction.response.send_message(f"{member.mention}, вам установили имплант!")
 		else:
 			await interaction.response.send_message("У этого пользователя уже есть имплант!")
+
+@client.slash_command(description="Забрать РЧ у пользователя")
+async def removecash(interaction: Interaction, member: nextcord.Member, amount: int):
+	with sqlite3.connect("data.db") as db:
+		cursor = db.cursor()
+		if interaction.user.id != 641239378814959616:
+			await interaction.response.send_message("Вы не разработчик бота!")
+			return
+		else:
+			money = cursor.execute("SELECT cash FROM users WHERE id = ?", [member.id]).fetchone()
+			cursor.execute(f"UPDATE users SET cash = {money[0] - amount} WHERE id = ?", [member.id])
+			await interaction.response.send_message("Отобрано!")
+
+@client.slash_command(description="Назначить алгоритм пользователю")
+async def algoritm(interaction: Interaction, member: nextcord.Member, algoritm: str):
+	with sqlite3.connect("data.db") as db:
+		cursor = db.cursor()
+
+		cursor.execute("""CREATE TABLE IF NOT EXISTS algoritms (
+				id INT,
+				algoritm TEXT
+			)""")
+
+		if interaction.user.id != 641239378814959616:
+			await interaction.response.send_message("Вы не разработчик бота!")
+			return
+		else:
+			if cursor.execute("SELECT algoritm FROM algoritms WHERE id = ?", [member.id]).fetchone() is None:
+				values = [member.id, algoritm]
+				cursor.execute("INSERT INTO algoritms VALUES(?, ?)", values)
+				await interaction.response.send_message(f"Пользователю **{member}** успешно присвоен алгоритм **{algoritm}**!")
+				try:
+					await member.send(f"Вам был присвоен алгоритм **{algoritm}**, на сервере **{interaction.guild}**")
+				except:
+					pass
+			else:
+				cursor.execute(f"UPDATE algoritms SET algoritm = '{algoritm}' WHERE id = ?", [member.id])
+				await interaction.response.send_message(f"Пользователю **{member}** успешно присвоен новый алгоритм! Алгоритм: **{algoritm}**!")
+				try:
+					await member.send(f"Вам был присвоен новый алгоритм **{algoritm}**, на сервере **{interaction.guild}**")
+				except:
+					pass
 
 client.run(bot_config.TOKEN)
