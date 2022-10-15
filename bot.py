@@ -483,8 +483,8 @@ async def info(interaction: Interaction, member: nextcord.Member):
 		global implant
 		global implants_msg
 		implants_msg = ""
-		pet = cursor.execute("SELECT name FROM userpets WHERE id = ?", [interaction.user.id]).fetchone()
-		for implant in cursor.execute("SELECT * FROM userimplants WHERE id = ?", [interaction.user.id]):
+		pet = cursor.execute("SELECT name FROM userpets WHERE id = ?", [member.id]).fetchone()
+		for implant in cursor.execute("SELECT * FROM userimplants WHERE id = ?", [member.id]):
 			implants_msg += f"{implant[1]}\n"
 		if pet is None:
 			emb = nextcord.Embed(title="Информация о Вас", color=nextcord.Color.blue())
@@ -502,8 +502,8 @@ async def info(interaction: Interaction, member: nextcord.Member):
 			else:
 				privateline = cursor.execute("SELECT name FROM privateline WHERE id = ?", [member.id]).fetchone()[0]
 
-			emb = nextcord.Embed(title="Информация о Вас", color=nextcord.Color.blue())
-			emb.add_field(name="Имя:", value=f"**{interaction.user}**")
+			emb = nextcord.Embed(title=f"Информация о {member}", color=nextcord.Color.blue())
+			emb.add_field(name="Имя:", value=f"**{member}**")
 			emb.add_field(name="Питомец:", value=f"{pet[0]}")
 			emb.add_field(name="Импланты:", value=implants_msg)
 			emb.add_field(name="Алгоритм:", value=algoritm)
